@@ -34,12 +34,14 @@ class Logic:
         self.tabView = tabView
         self.dir = "videos"
         self.audio_dir = "music"
+        self.audio = None
         self.file_type = "video"
         self.resolution = "144p"
         self.Instance = vlc.Instance()
         self.player = self.Instance.media_player_new()
         self.mp = self.Instance.media_player_new()
         self.timeslider_last_update = 0
+        self.musicslider_last_update = 0
         self.scale_var = tkinter.DoubleVar()
         self.stream = []
         
@@ -49,29 +51,28 @@ class Logic:
         self.mp_timer.start()
     
     def downloadVideo(self):
+        self.tabView.log_window.delete("0.0", "end")
         if self.file_type == "video":
             try:
+                self.tabView.log_window.insert("end", f"Trying to download video from {self.tabView.link_entry.get()}\n")
                 self.tabView.thread.link = self.tabView.link_entry.get()
                 self.tabView.thread.resolution = self.resolution
                 self.tabView.file_type = self.file_type
                 self.tabView.thread.logic = self
                 self.tabView.thread.video_active = True
-                print("done")
             
             except:
-                pass
+                self.tabView.log_window.insert("end", "Unable to download the video file\n")
             
         elif self.file_type == "audio":
             try:
+                self.tabView.log_window.insert("end", f"Trying to download an audio from {self.tabView.link_entry.get()}\n")
                 self.tabView.thread.link = self.tabView.link_entry.get()
                 self.tabView.file_type = self.file_type
                 self.tabView.thread.logic = self
                 self.tabView.thread.audio_active = True
-                print("done")
-                #downloader.Loader(self.tabView.link_entry.get()).downloadAudio()
-                #self.tabView.music_list.updateMusicList()
             except:
-                pass
+                self.tabView.log_window.insert("end", "Unable to download the audio file\n")
             
         
     def clearEntry(self):
@@ -128,8 +129,8 @@ class Logic:
             author = list(db.searchItem("Name", f"{audio}"))[0][3]
             db.abort()
             if len(name) > 18:
-                name = name[:18] + "..."
-            if len(author) > 18:
+                name = name[:17] + "..."
+            if len(author) > 19:
                 author = author[:18] + "..."
             form = audio.split(".")[1].upper()
             form_label = customtkinter.CTkLabel(master=frame, text=form, width=40, height=40, corner_radius=5, fg_color="gray", text_color="white")
@@ -157,9 +158,9 @@ class Logic:
                 author = list(db.searchItem("Name", f"{self.audio_list[i]}"))[0][3]
                 db.abort()
                 if len(name) > 18:
-                    name = name[:18] + "..."
-                if len(author) > 18:
-                    author = author[:18] + "..."
+                    name = name[:17] + "..."
+                if len(author) > 19:
+                    author = author[:19] + "..."
                 form = self.audio_list[i].split(".")[1].upper()
                 form_label = customtkinter.CTkLabel(master=frame, text=form, width=40, height=40, corner_radius=5, fg_color="gray", text_color="white")
                 form_label.place(x=10, y=10)
@@ -173,6 +174,16 @@ class Logic:
                 delete_button.place(x=270, y=10)
                 self.stream.append(frame)
                 self.stream[len(self.stream)-1].grid(row=len(self.stream)-1, column=0, padx=10, pady=5)
+                
+    def createLogList(self):
+        with open("logs.txt", "r") as file:
+            array = file.read().split("\n\n")
+            for data in array:
+                if len(data) > 2:
+                    frame = customtkinter.CTkFrame(master=self.tabView.logFrame)
+                    info = customtkinter.CTkLabel(master=frame, text=data)
+                    info.pack(padx=10, pady=10, expand=True, fill="both")
+                    frame.pack(padx=10, pady=10, fill="both")
     
     def getHandle(self):
         return self.tabView.vlc_frame.winfo_id()
@@ -180,6 +191,9 @@ class Logic:
     def playVideo(self, video):
         self.tabView.video_list.video = video
         try:
+            if self.mp.is_playing():
+                self.mp.set_pause(1)
+                self.tabView.play_button.configure(text="Play ▶")
             self.Media = self.Instance.media_new(f"videos\{self.tabView.video_list.video}")
             self.player.set_media(self.Media)
             self.player.set_hwnd(self.getHandle())
@@ -190,12 +204,28 @@ class Logic:
         except:
             print("unable to load the file")
             
+    def playAudio(self, audio):
+        self.tabView.audPlayer.delete("0.0", "end")
+        self.audio = audio
+        try:
+            db = DataBase()
+            lyrics = db.searchItem("Name", f"{audio}")[0][2]
+            self.tabView.audPlayer.insert("0.0", lyrics)
+            if self.player.is_playing():
+                self.player.set_pause(1)
+                self.tabView.pause_button.configure(text="Play ▶")
+            self.MMedia = self.Instance.media_new(f"music\{self.audio}")
+            self.mp.set_media(self.MMedia)
+            self.mp.play()
+            self.tabView.music_slider.set(-1)
+            self.tabView.play_button.configure(text="Pause ||")
+            db.abort()
+        except:
+            print("unabletoload the file")
+        
     def deleteVideo(self, video):
         self.player.stop()
         print("deleted " + video)
-        
-    def playAudio(self, audio):
-        pass
     
     def deleteAudio(self, audio):
         pass
@@ -203,15 +233,33 @@ class Logic:
     def stop(self):
         self.player.stop()
         self.tabView.progress_slider.set(-1)
+    
+    def stopMp(self):
+        self.mp.stop()
+        self.tabView.music_slider.set(-1)
+        self.tabView.audPlayer.delete("0.0", "end")
         
     def playPause(self):
         if self.tabView.video_list.video:
             if not bool(self.player.is_playing()):
+                self.mp.set_pause(1)
+                self.tabView.play_button.configure(text="Play ▶")
                 self.player.play()
                 self.tabView.pause_button.configure(text="Pause ||")
             else:
                 self.player.set_pause(1)
                 self.tabView.pause_button.configure(text="Play ▶")
+        
+    def playMPause(self):
+        if self.audio:
+            if not bool(self.mp.is_playing()):
+                self.player.set_pause(1)
+                self.tabView.pause_button.configure(text="Play ▶")
+                self.mp.play()
+                self.tabView.play_button.configure(text="Pause ||")
+            else:
+                self.mp.set_pause(1)
+                self.tabView.play_button.configure(text="Play ▶")
     
     def updateScale(self):
         if self.player == None:
@@ -234,7 +282,20 @@ class Logic:
             self.tabView.progress_slider.set(dbl)
             
     def updateMScale(self):
-        pass
+        if self.mp == None:
+            return
+        length = self.mp.get_length()
+        dbl = length * 0.001
+        self.tabView.music_slider.configure(to=dbl)
+        
+        tyme = self.mp.get_time()
+        if tyme == -1:
+            tume = 0
+        dbl = tyme * 0.001
+        self.musicslider_last_val = ("%.0f" % dbl) + ".0"
+        
+        if time.time() > (self.musicslider_last_update + 2.0):
+            self.tabView.music_slider.set(dbl+0.001)
         
     def seekSliderValue(self, value):
         if self.player == None:
@@ -247,13 +308,34 @@ class Logic:
                 self.player.set_time(int(mval)*1000)
             except:
                 print("failed")
-            
+                
+    def seekMSliderValue(self, value):
+        if self.mp == None:
+            return
+        current_val = str(self.tabView.music_slider.get())
+        if self.audio:
+            try:
+                self.musicslider_last_update = time.time()
+                mval = self.tabView.music_slider.get()
+                self.mp.set_time(int(mval)*1000)
+            except:
+                print("failed")
+         
+    '''
     def updateDuration(self, event):
         try:
             duration = int(self.tabView.vidPlayer.video_info()["duration"])
             self.tabView.progress_slider.configure(from_=-1, to=duration, number_of_steps=duration)
         except:
             pass
+    
+    def updateMDuration(self, event):
+        try:
+            duration = int(self.mp.video_info()["duration"])
+            self.tabView.music_slider.configure(from_=-1, to=duration, number_of_steps=duration)
+        except:
+            pass
+    '''
         
     def videoEnded(self, event):
         self.tabView.pause_button.configure(text="Play ►")
