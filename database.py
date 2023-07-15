@@ -21,6 +21,10 @@ class DataBase:
     def addItem(self, item):
         self.cursor.execute("INSERT INTO songs VALUES (?, ?, ?, ?)", item)
         self.connection.commit()
+    
+    def deleteItem(self, name):
+        self.cursor.execute("DELETE FROM songs WHERE Name=?", (name,))
+        self.connection.commit()
         
     def searchItem(self, item, form):
         query = f"SELECT * FROM songs WHERE {item} = '{form}';"
@@ -37,5 +41,3 @@ class DataBase:
     def abort(self):
         self.cursor.close()
         self.connection.close()
-        
-#print(DataBase().searchItem("Name", "Name"))
