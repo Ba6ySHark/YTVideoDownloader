@@ -1,11 +1,7 @@
-import downloader
 import logic
-
 import tkinter
 import customtkinter
-from tkVideoPlayer import TkinterVideo
 import os
-import vlc
 
 class ScrollFrame(customtkinter.CTkScrollableFrame):
     def __init__(self, master, **kwargs):
@@ -50,6 +46,7 @@ class MyTabView(customtkinter.CTkTabview):
         self.show_file_label = customtkinter.CTkLabel(master=self.top, text="Open in File Manager: ", fg_color="transparent", width=95, height=30)
         self.show_file_label.place(x=380, y=90)
         self.show_file_select = customtkinter.CTkOptionMenu(master=self.top, values=["Yes", "No"], width=55, height=30, corner_radius=5)
+        self.show_file_select.set("No")
         self.show_file_select.place(x=510, y=90)
         self.top.pack(padx=0, pady=0)
         self.log_window = customtkinter.CTkTextbox(master=self.downloader_frame, width=570, height=425, corner_radius=15)
@@ -112,9 +109,13 @@ class MyTabView(customtkinter.CTkTabview):
         #Completed tasks page (4)
         self.esn1 = customtkinter.CTkLabel(master=self.tab("Completed tasks"), text="", fg_color="transparent")
         self.esn1.pack(expand=True, fill="both", side=customtkinter.LEFT)
-        self.logFrame = customtkinter.CTkScrollableFrame(master=self.tab("Completed tasks"), width=570, corner_radius=15)
+        self.tasksFrame = customtkinter.CTkFrame(master=self.tab("Completed tasks"), fg_color="transparent")
+        self.logFrame = customtkinter.CTkScrollableFrame(master=self.tasksFrame, width=720, corner_radius=15)
         lg.createLogList()
-        self.logFrame.pack(padx=10, pady=10, fill="both", side=customtkinter.LEFT)
+        self.logFrame.pack(padx=0, pady=0, expand=True, fill="both")
+        self.clear_logs = customtkinter.CTkButton(master=self.tasksFrame, text="Clear", fg_color="red", font=("Calibri", 15), command=lg.clearLogs)
+        self.clear_logs.pack(padx=0, pady=0)
+        self.tasksFrame.pack(padx=10, pady=10, fill="both", side=customtkinter.LEFT)
         self.esn2 = customtkinter.CTkLabel(master=self.tab("Completed tasks"), text="", fg_color="transparent")
         self.esn2.pack(expand=True, fill="both", side=customtkinter.LEFT)
         
@@ -125,6 +126,8 @@ class MyTabView(customtkinter.CTkTabview):
         self.music_slider.configure(command=lg.seekMSliderValue)
         self.stop_button.configure(command=lg.stopMp)
         self.play_button.configure(command=lg.playMPause)
+        self.previous_button.configure(command=lg.previousAudio)
+        self.next_button.configure(command=lg.nextAudio)
         
         
 class App(customtkinter.CTk):
