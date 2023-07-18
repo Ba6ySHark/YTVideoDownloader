@@ -1,0 +1,2 @@
+This folder serves as a temporary storage for audio files.
+(files are automaticaly deleted once the programm merges them)
