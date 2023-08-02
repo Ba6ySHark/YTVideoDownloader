@@ -8,13 +8,10 @@ class Scraper:
         self.api.skip_non_songs = True
     
     def get_lyrics(self, name, author):
-        song = self.api.search_song(name, author)
-        if len(song.lyrics) > 15000:
+        try:
+            song = self.api.search_song(name, author)
+            if len(song.lyrics) > 15000:
+                return "Not Found"
+            return song.lyrics
+        except:
             return "Not Found"
-        return song.lyrics
-
-'''
-sc = Scraper()
-l = sc.get_lyrics("Chain of Abuse (Visualizer)", "Three Days Grace")
-print(l, len(l))
-'''
