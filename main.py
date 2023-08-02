@@ -23,7 +23,6 @@ if __name__ == "__main__":
     thread.daemon = True
     thread.start()
     
-    #ui.setThread(thread)
     app.setThread(thread)
     app.callWidgets()
     app.mainloop()

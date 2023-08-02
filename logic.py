@@ -1,11 +1,10 @@
-import downloader
 from database import DataBase
 import customtkinter
 import os
 import vlc
 import time
 import tkinter
-from threading import Timer, Thread, Event
+from threading import Thread, Event
 
 class ttkTimer(Thread):
     #a class serving same function as wxTimer... but there may be better ways to do this
@@ -44,6 +43,7 @@ class Logic:
         self.musicslider_last_update = 0
         self.scale_var = tkinter.DoubleVar()
         self.stream = []
+        self.log_frames = []
         
         self.timer = ttkTimer(self.updateScale, 1.0)
         self.timer.start()
@@ -94,8 +94,8 @@ class Logic:
             play_button.place(x=220, y=10)
             delete_button = customtkinter.CTkButton(master=frame, text="Del", width=40, height=40, corner_radius=5, font=("Calibri", 17), command=lambda video=video: self.deleteVideo(video))
             delete_button.place(x=270, y=10)
-            self.tabView.video_list.stream.append(frame)
-            self.tabView.video_list.stream[i].grid(row=i, column=0, padx=10, pady=5)
+            self.tabView.video_list.stream.append((video, frame))
+            self.tabView.video_list.stream[i][1].grid(row=i, column=0, padx=10, pady=5)
             i += 1
             
     def updateVideoList(self):
@@ -116,8 +116,8 @@ class Logic:
                 play_button.place(x=220, y=10)
                 delete_button = customtkinter.CTkButton(master=frame, text="Del", width=40, height=40, corner_radius=5, font=("Calibri", 17), command=lambda video=self.tabView.video_list.videos[i]: self.deleteVideo(video))
                 delete_button.place(x=270, y=10)
-                self.tabView.video_list.stream.append(frame)
-                self.tabView.video_list.stream[len(self.tabView.video_list.stream)-1].grid(row=len(self.tabView.video_list.stream)-1, column=0, padx=10, pady=5)
+                self.tabView.video_list.stream.append((self.tabView.video_list.videos[i], frame))
+                self.tabView.video_list.stream[len(self.tabView.video_list.stream)-1][1].grid(row=len(self.tabView.video_list.stream)-1, column=0, padx=10, pady=5)
     
     def createAudioList(self):
         i = 0
@@ -126,7 +126,12 @@ class Logic:
             frame = customtkinter.CTkFrame(master=self.tabView.audio_list, width=320, height=60, corner_radius=15)
             name = audio.split(".")[0]
             db = DataBase()
-            author = list(db.searchItem("Name", f"{audio}"))[0][3]
+            try:
+                author = list(db.searchItem("Name", f"{audio}"))[0][3]
+            except:
+                author = "Unknown"
+                item = (0, audio, "Not found", author)
+                db.addItem(item)
             db.abort()
             if len(name) > 18:
                 name = name[:17] + "..."
@@ -143,8 +148,8 @@ class Logic:
             play_button.place(x=220, y=10)
             delete_button = customtkinter.CTkButton(master=frame, text="Del", width=40, height=40, corner_radius=5, font=("Calibri", 17), command=lambda audio=audio: self.deleteAudio(audio))
             delete_button.place(x=270, y=10)
-            self.stream.append(frame)
-            self.stream[i].grid(row=i, column=0, padx=10, pady=5)
+            self.stream.append((audio, frame))
+            self.stream[i][1].grid(row=i, column=0, padx=10, pady=5)
             i += 1
             
     def updateAudioList(self):
@@ -155,7 +160,12 @@ class Logic:
                 frame = customtkinter.CTkFrame(master=self.tabView.audio_list, width=320, height=60, corner_radius=15)
                 name = self.audio_list[i].split(".")[0]
                 db = DataBase()
-                author = list(db.searchItem("Name", f"{self.audio_list[i]}"))[0][3]
+                try:
+                    author = list(db.searchItem("Name", f"{self.audio_list[i]}"))[0][3]
+                except:
+                    author = "Unknown"
+                    item = (0, audio, "Not found", author)
+                    db.addItem(item)
                 db.abort()
                 if len(name) > 18:
                     name = name[:17] + "..."
@@ -172,18 +182,31 @@ class Logic:
                 play_button.place(x=220, y=10)
                 delete_button = customtkinter.CTkButton(master=frame, text="Del", width=40, height=40, corner_radius=5, font=("Calibri", 17), command=lambda audio=self.audio_list[i]: self.deleteAudio(audio))
                 delete_button.place(x=270, y=10)
-                self.stream.append(frame)
-                self.stream[len(self.stream)-1].grid(row=len(self.stream)-1, column=0, padx=10, pady=5)
+                self.stream.append((self.audio_list[i], frame))
+                self.stream[len(self.stream)-1][1].grid(row=len(self.stream)-1, column=0, padx=10, pady=5)
                 
     def createLogList(self):
         with open("logs.txt", "r") as file:
             array = file.read().split("\n\n")
             for data in array:
                 if len(data) > 2:
-                    frame = customtkinter.CTkFrame(master=self.tabView.logFrame)
+                    frame = customtkinter.CTkFrame(master=self.tabView.logFrame, corner_radius=15)
                     info = customtkinter.CTkLabel(master=frame, text=data)
                     info.pack(padx=10, pady=10, expand=True, fill="both")
                     frame.pack(padx=10, pady=10, fill="both")
+                    self.log_frames.append(frame)
+                    
+    def updateLogList(self, new_log):
+        frame = customtkinter.CTkFrame(master=self.tabView.logFrame, corner_radius=15)
+        info = customtkinter.CTkLabel(master=frame, text=new_log)
+        info.pack(padx=10, pady=10, expand=True, fill="both")
+        frame.pack(padx=10, pady=10, fill="both")
+        self.log_frames.append(frame)
+    
+    def clearLogs(self):
+        open("logs.txt", "w").close()
+        for frame in self.log_frames:
+            frame.destroy()
     
     def getHandle(self):
         return self.tabView.vlc_frame.winfo_id()
@@ -224,12 +247,63 @@ class Logic:
             print("unabletoload the file")
         
     def deleteVideo(self, video):
-        self.player.stop()
-        print("deleted " + video)
+        with open("logs.txt", "a") as file:
+            try:
+                self.player.stop()
+                for element in self.tabView.video_list.stream:
+                    if video == element[0]:
+                        #print(element)
+                        element[1].destroy()
+                        self.tabView.video_list.stream.remove(element)
+                os.remove(f"videos/{video}")
+                fb = f"Trying to delete a file at videos/{video}\nDeleting...\nSuccessfully deleted the file!\n\n"
+                file.write(fb)
+                self.updateLogList(fb)
+            except:
+                error_message = f"Trying to delete a file at videos/{video}\nDeleting...\nFailed to delete the file.\n\n"
+                file.write(error_message)
+                self.updateLogList(error_message)
     
     def deleteAudio(self, audio):
-        pass
-            
+        with open("logs.txt", "a") as file:
+            try:
+                self.mp.stop()
+                for element in self.stream:
+                    if audio == element[0]:
+                        element[1].destroy()
+                        self.stream.remove(element)
+                db = DataBase()
+                db.deleteItem(audio)
+                db.abort()
+                os.remove(f"music/{audio}")
+                fb = f"Trying to delete a file at music/{audio}\nDeleting...\nSuccessfully deleted the file!\n\n"
+                file.write(fb)
+                self.updateLogList(fb)
+            except:
+                error_message = f"Trying to delete a file at music/{audio}\nDeleting...\nFailed to delete the file.\n\n"
+                file.write(error_message)
+                self.updateLogList(error_message)
+    
+    def nextAudio(self):
+        if self.audio and (self.audio in self.audio_list):
+            index = self.audio_list.index(self.audio)
+            next_index = (index + 1)%(len(self.audio_list))
+            self.stopMp()
+            self.playAudio(self.audio_list[next_index])
+        else:
+            pass
+    
+    def previousAudio(self):
+        if self.audio and (self.audio in self.audio_list):
+            index = self.audio_list.index(self.audio)
+            previous_index = (index - 1)
+            if previous_index < 0:
+                previous_index = len(self.audio_list) - 1
+            self.stopMp()
+            self.playAudio(self.audio_list[previous_index])
+        else:
+            pass
+                
     def stop(self):
         self.player.stop()
         self.tabView.progress_slider.set(-1)
@@ -264,43 +338,50 @@ class Logic:
     def updateScale(self):
         if self.player == None:
             return
-        # since the self.player.get_length can change while playing,
-        # re-set the timeslider to the correct range.
-        length = self.player.get_length()
-        dbl = length * 0.001
-        self.tabView.progress_slider.configure(to=dbl)
+        else:
+            try:
+                # since the self.player.get_length can change while playing,
+                # re-set the timeslider to the correct range.
+                length = self.player.get_length()
+                dbl = length * 0.001
+                self.tabView.progress_slider.configure(to=dbl)
 
-        # update the time on the slider
-        tyme = self.player.get_time()
-        if tyme == -1:
-            tyme = 0
-        dbl = tyme * 0.001
-        self.timeslider_last_val = ("%.0f" % dbl) + ".0"
-        # don't want to programatically change slider while user is messing with it.
-        # wait 2 seconds after user lets go of slider
-        if time.time() > (self.timeslider_last_update + 2.0):
-            self.tabView.progress_slider.set(dbl)
+                # update the time on the slider
+                tyme = self.player.get_time()
+                if tyme == -1:
+                    tyme = 0
+                dbl = tyme * 0.001
+                self.timeslider_last_val = ("%.0f" % dbl) + ".0"
+                # don't want to programatically change slider while user is messing with it.
+                # wait 2 seconds after user lets go of slider
+                if time.time() > (self.timeslider_last_update + 2.0):
+                    self.tabView.progress_slider.set(dbl)
+            except:
+                pass
             
     def updateMScale(self):
         if self.mp == None:
             return
-        length = self.mp.get_length()
-        dbl = length * 0.001
-        self.tabView.music_slider.configure(to=dbl)
-        
-        tyme = self.mp.get_time()
-        if tyme == -1:
-            tume = 0
-        dbl = tyme * 0.001
-        self.musicslider_last_val = ("%.0f" % dbl) + ".0"
-        
-        if time.time() > (self.musicslider_last_update + 2.0):
-            self.tabView.music_slider.set(dbl+0.001)
+        else:
+            try:
+                length = self.mp.get_length()
+                dbl = length * 0.001
+                self.tabView.music_slider.configure(to=dbl)
+                
+                tyme = self.mp.get_time()
+                if tyme == -1:
+                    tume = 0
+                dbl = tyme * 0.001
+                self.musicslider_last_val = ("%.0f" % dbl) + ".0"
+                
+                if time.time() > (self.musicslider_last_update + 2.0):
+                    self.tabView.music_slider.set(dbl+0.001)
+            except:
+                pass
         
     def seekSliderValue(self, value):
         if self.player == None:
             return
-        current_val = str(self.tabView.progress_slider.get())
         if self.tabView.video_list.video:
             try:
                 self.timeslider_last_update = time.time()
@@ -312,7 +393,6 @@ class Logic:
     def seekMSliderValue(self, value):
         if self.mp == None:
             return
-        current_val = str(self.tabView.music_slider.get())
         if self.audio:
             try:
                 self.musicslider_last_update = time.time()
@@ -343,10 +423,10 @@ class Logic:
         
     def setNowPlaying(self):
         title = self.tabView.video_list.video.split('.')[0]
-        if len(title) <= 60:
+        if len(title) <= 56:
             self.tabView.now_playing.configure(text=f"Now playing: {title}")
         else:
-            title = title[:56] + "..."
+            title = title[:53] + "..."
             self.tabView.now_playing.configure(text=f"Now playing: {title}")
         
     def setFileType(self, event):
